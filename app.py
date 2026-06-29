@@ -140,6 +140,43 @@ def value_comment(row):
 
     return "财务数据不完整，参考估值和流动性"
 
+def get_current_quarter_start():
+    today = datetime.now()
+    quarter_month = ((today.month - 1) // 3) * 3 + 1
+    return datetime(today.year, quarter_month, 1)
+
+
+@st.cache_data(ttl=3600)
+def get_stock_quarter_return(code, start_date, end_date):
+    try:
+        code = str(code).zfill(6)
+
+        hist = ak.stock_zh_a_hist(
+            symbol=code,
+            period="daily",
+            start_date=start_date,
+            end_date=end_date,
+            adjust="qfq"
+        )
+
+        if hist is None or hist.empty:
+            return None
+
+        hist = hist.sort_values("日期")
+        start_price = hist["收盘"].iloc[0]
+        end_price = hist["收盘"].iloc[-1]
+
+        quarter_ret = end_price / start_price - 1
+
+        return {
+            "期初价格": start_price,
+            "期末价格": end_price,
+            "本季度收益率": quarter_ret
+        }
+
+    except:
+        return None
+
 
 try:
     stock_df, index_df, industry_df = load_market_data()
@@ -369,9 +406,88 @@ try:
         file_name="本期推荐组合.csv",
         mime="text/csv"
     )
-
     # ======================
-    # 5. 方法说明
+    # 5. 组合实盘回测
+    # ======================
+
+    st.header("5. 组合实盘回测：本季度以来表现")
+
+    quarter_start = get_current_quarter_start()
+    start_date = quarter_start.strftime("%Y%m%d")
+    end_date = datetime.now().strftime("%Y%m%d")
+
+    st.write(
+        f"本模块用于跟踪当前推荐组合在本季度以来的实际表现。"
+        f"回测区间为：{quarter_start.strftime('%Y-%m-%d')} 至 {datetime.now().strftime('%Y-%m-%d')}。"
+        "组合采用前 10 只股票等权配置，每只股票权重为 10%。"
+    )
+
+    backtest_list = []
+
+    for _, row in top_stock.iterrows():
+        code = row["代码"]
+        name = row["名称"]
+
+        ret_info = get_stock_quarter_return(code, start_date, end_date)
+
+        if ret_info is not None:
+            backtest_list.append({
+                "代码": code,
+                "名称": name,
+                "期初价格": ret_info["期初价格"],
+                "期末价格": ret_info["期末价格"],
+                "本季度收益率": ret_info["本季度收益率"],
+                "组合权重": 0.10,
+                "收益贡献": ret_info["本季度收益率"] * 0.10
+            })
+
+    if len(backtest_list) > 0:
+        bt_df = pd.DataFrame(backtest_list)
+
+        portfolio_ret = bt_df["收益贡献"].sum()
+        win_count = (bt_df["本季度收益率"] > 0).sum()
+        loss_count = (bt_df["本季度收益率"] < 0).sum()
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("组合本季度收益率", f"{portfolio_ret:.2%}")
+        c2.metric("上涨股票数", f"{win_count} 只")
+        c3.metric("下跌股票数", f"{loss_count} 只")
+
+        bt_show = bt_df.copy()
+        bt_show["期初价格"] = bt_show["期初价格"].round(2)
+        bt_show["期末价格"] = bt_show["期末价格"].round(2)
+        bt_show["本季度收益率"] = bt_show["本季度收益率"].apply(lambda x: f"{x:.2%}")
+        bt_show["组合权重"] = bt_show["组合权重"].apply(lambda x: f"{x:.2%}")
+        bt_show["收益贡献"] = bt_show["收益贡献"].apply(lambda x: f"{x:.2%}")
+
+        st.dataframe(bt_show, width="stretch", hide_index=True)
+
+        chart_df = bt_df[["名称", "本季度收益率"]].set_index("名称")
+        st.bar_chart(chart_df)
+
+        if portfolio_ret > 0:
+            st.success(
+                "本季度以来，当前推荐组合取得正收益，说明组合在本季度市场环境下具有一定配置效果。"
+            )
+        else:
+            st.warning(
+                "本季度以来，当前推荐组合收益为负，说明组合在当前季度市场环境下表现不佳。"
+                "这并不代表模型完全失效，但说明需要进一步加强风险控制、行业分散和止损机制。"
+            )
+
+        st.write(
+            "从个股贡献看，组合收益主要受本季度涨跌幅较大的股票影响。"
+            "如果组合本季度表现较差，说明仅依靠估值、流动性、趋势和季度基本面进行排序仍不足以完全规避短期市场风险，"
+            "后续可以加入行业约束、最大回撤控制和个股止损规则。"
+        )
+
+    else:
+        st.warning(
+            "当前云端环境未能成功获取股票历史行情，因此暂时无法计算本季度组合实盘表现。"
+            "建议在本地运行版本中进行回测，或稍后重新刷新页面。"
+        )
+    # ======================
+    # 6. 方法说明
     # ======================
 
     st.header("5. 方法说明与风险提示")
