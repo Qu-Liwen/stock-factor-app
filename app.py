@@ -410,105 +410,92 @@ try:
     # 5. 组合实盘回测
     # ======================
 
-    st.header("5. 组合实盘回测：本季度以来表现")
+   
+st.header("5. 组合实盘回测：本季度以来表现")
 
-    quarter_start = get_current_quarter_start()
-    start_date = quarter_start.strftime("%Y%m%d")
-    end_date = datetime.now().strftime("%Y%m%d")
+quarter_start = get_current_quarter_start()
+start_date = quarter_start.strftime("%Y%m%d")
+end_date = datetime.now().strftime("%Y%m%d")
 
-    st.write(
-        f"本模块用于跟踪当前推荐组合在本季度以来的实际表现。"
-        f"回测区间为：{quarter_start.strftime('%Y-%m-%d')} 至 {datetime.now().strftime('%Y-%m-%d')}。"
-        "组合采用前 10 只股票等权配置，每只股票权重为 10%。"
-    )
-
-    backtest_list = []
-
-    for _, row in top_stock.iterrows():
-        code = row["代码"]
-        name = row["名称"]
-
-        ret_info = get_stock_quarter_return(code, start_date, end_date)
-
-        if ret_info is not None:
-            backtest_list.append({
-                "代码": code,
-                "名称": name,
-                "期初价格": ret_info["期初价格"],
-                "期末价格": ret_info["期末价格"],
-                "本季度收益率": ret_info["本季度收益率"],
-                "组合权重": 0.10,
-                "收益贡献": ret_info["本季度收益率"] * 0.10
-            })
-
-    if len(backtest_list) > 0:
-        bt_df = pd.DataFrame(backtest_list)
-
-        portfolio_ret = bt_df["收益贡献"].sum()
-        win_count = (bt_df["本季度收益率"] > 0).sum()
-        loss_count = (bt_df["本季度收益率"] < 0).sum()
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("组合本季度收益率", f"{portfolio_ret:.2%}")
-        c2.metric("上涨股票数", f"{win_count} 只")
-        c3.metric("下跌股票数", f"{loss_count} 只")
-
-        bt_show = bt_df.copy()
-        bt_show["期初价格"] = bt_show["期初价格"].round(2)
-        bt_show["期末价格"] = bt_show["期末价格"].round(2)
-        bt_show["本季度收益率"] = bt_show["本季度收益率"].apply(lambda x: f"{x:.2%}")
-        bt_show["组合权重"] = bt_show["组合权重"].apply(lambda x: f"{x:.2%}")
-        bt_show["收益贡献"] = bt_show["收益贡献"].apply(lambda x: f"{x:.2%}")
-
-        st.dataframe(bt_show, width="stretch", hide_index=True)
-        st.bar_chart(bt_df[["名称", "本季度收益率"]].set_index("名称"))
-
-        if portfolio_ret > 0:
-            st.success("本季度以来，当前推荐组合取得正收益，说明组合在本季度市场环境下具有一定配置效果。")
-        else:
-            st.warning(
-                "本季度以来，当前推荐组合收益为负，说明组合在当前季度市场环境下表现不佳。"
-                "这说明模型还需要进一步加入行业约束、止损规则和回撤控制。"
-            )
-
-    else:
-      st.warning(
-             "由于 Streamlit Cloud 云端访问部分 A 股历史行情接口不稳定，当前展示备用回测样例，用于说明组合实盘跟踪方法。"
-             "如需获取真实季度收益，可在本地 Python / AkShare 环境运行同一套代码。"
-       )
-
-        backup_bt = pd.DataFrame({
-            "代码": ["601899", "600036", "300750", "601318", "000333", "600900", "002415", "600519", "000858", "002594"],
-            "名称": ["紫金矿业", "招商银行", "宁德时代", "中国平安", "美的集团", "长江电力", "海康威视", "贵州茅台", "五粮液", "比亚迪"],
-            "本季度收益率": [-0.082, -0.045, -0.120, -0.060, -0.030, 0.020, -0.100, -0.050, -0.090, -0.150],
-            "组合权重": [0.10] * 10
-        })
-
-        backup_bt["收益贡献"] = backup_bt["本季度收益率"] * backup_bt["组合权重"]
-        backup_portfolio_ret = backup_bt["收益贡献"].sum()
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("组合本季度收益率", f"{backup_portfolio_ret:.2%}")
-        c2.metric("上涨股票数", f"{(backup_bt['本季度收益率'] > 0).sum()} 只")
-        c3.metric("下跌股票数", f"{(backup_bt['本季度收益率'] < 0).sum()} 只")
-
-        backup_show = backup_bt.copy()
-        backup_show["本季度收益率"] = backup_show["本季度收益率"].apply(lambda x: f"{x:.2%}")
-        backup_show["组合权重"] = backup_show["组合权重"].apply(lambda x: f"{x:.2%}")
-        backup_show["收益贡献"] = backup_show["收益贡献"].apply(lambda x: f"{x:.2%}")
-
-        st.dataframe(backup_show, width="stretch", hide_index=True)
-        st.bar_chart(backup_bt[["名称", "本季度收益率"]].set_index("名称"))
-
-       st.warning(
-    "从备用回测样例看，本季度组合收益为负，说明如果当前推荐组合在单季度表现不佳，"
-    "模型需要进一步加入止损规则、行业分散、回撤控制和季度再平衡机制。"
+st.write(
+    f"本模块用于跟踪当前推荐组合在本季度以来的实际表现。"
+    f"回测区间为：{quarter_start.strftime('%Y-%m-%d')} 至 {datetime.now().strftime('%Y-%m-%d')}。"
+    "组合采用前10只股票等权配置，每只股票权重为10%。"
 )
 
-        st.write(
-            "该结果说明，仅依靠估值、流动性、趋势和季度基本面进行选股，仍可能在单季度出现较大波动。"
-            "后续可以进一步加入行业分散、最大回撤控制、止损规则和季度再平衡机制，以提高组合实盘稳定性。"
-        )
+backtest_list = []
+
+for _, row in top_stock.iterrows():
+    ret_info = get_stock_quarter_return(row["代码"], start_date, end_date)
+
+    if ret_info is not None:
+        backtest_list.append({
+            "代码": row["代码"],
+            "名称": row["名称"],
+            "期初价格": ret_info["期初价格"],
+            "期末价格": ret_info["期末价格"],
+            "本季度收益率": ret_info["本季度收益率"],
+            "组合权重": 0.10,
+            "收益贡献": ret_info["本季度收益率"] * 0.10
+        })
+
+if len(backtest_list) > 0:
+    backtest_df = pd.DataFrame(backtest_list)
+
+else:
+    st.warning(
+        "由于 Streamlit Cloud 云端访问部分 A 股历史行情接口不稳定，当前展示备用回测样例，用于说明组合实盘跟踪方法。"
+        "如需获取真实季度收益，可在本地 Python / AkShare 环境运行同一套代码。"
+    )
+
+    backtest_df = pd.DataFrame({
+        "代码": ["601899", "600036", "300750", "601318", "000333", "600900", "002415", "600519", "000858", "002594"],
+        "名称": ["紫金矿业", "招商银行", "宁德时代", "中国平安", "美的集团", "长江电力", "海康威视", "贵州茅台", "五粮液", "比亚迪"],
+        "本季度收益率": [-0.082, -0.045, -0.120, -0.060, -0.030, 0.020, -0.100, -0.050, -0.090, -0.150],
+        "组合权重": [0.10] * 10
+    })
+
+    backtest_df["收益贡献"] = backtest_df["本季度收益率"] * backtest_df["组合权重"]
+
+portfolio_ret = backtest_df["收益贡献"].sum()
+win_count = (backtest_df["本季度收益率"] > 0).sum()
+loss_count = (backtest_df["本季度收益率"] < 0).sum()
+
+c1, c2, c3 = st.columns(3)
+c1.metric("组合本季度收益率", f"{portfolio_ret:.2%}")
+c2.metric("上涨股票数", f"{win_count} 只")
+c3.metric("下跌股票数", f"{loss_count} 只")
+
+show_bt = backtest_df.copy()
+
+if "期初价格" in show_bt.columns:
+    show_bt["期初价格"] = show_bt["期初价格"].round(2)
+
+if "期末价格" in show_bt.columns:
+    show_bt["期末价格"] = show_bt["期末价格"].round(2)
+
+show_bt["本季度收益率"] = show_bt["本季度收益率"].apply(lambda x: f"{x:.2%}")
+show_bt["组合权重"] = show_bt["组合权重"].apply(lambda x: f"{x:.2%}")
+show_bt["收益贡献"] = show_bt["收益贡献"].apply(lambda x: f"{x:.2%}")
+
+st.dataframe(show_bt, use_container_width=True, hide_index=True)
+
+st.bar_chart(backtest_df[["名称", "本季度收益率"]].set_index("名称"))
+
+if portfolio_ret >= 0:
+    st.success(
+        "本季度以来，当前推荐组合取得正收益，说明组合在当前市场环境下具有一定配置效果。"
+    )
+else:
+    st.warning(
+        "从备用回测样例看，本季度组合收益为负，说明如果当前推荐组合在单季度表现不佳，"
+        "模型需要进一步加入止损规则、行业分散、回撤控制和季度再平衡机制。"
+    )
+
+st.write(
+    "该结果说明，仅依靠估值、流动性、趋势和季度基本面进行选股，仍可能在单季度出现较大波动。"
+    "后续可以进一步加入行业分散、最大回撤控制、止损规则和季度再平衡机制，以提高组合实盘稳定性。"
+)
     # ======================
     # 6. 方法说明
     # ======================
