@@ -1,3 +1,203 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+try:
+    import akshare as ak
+except Exception:
+    ak = None
+
+st.set_page_config(page_title="A股基本面多因子配置推荐系统", layout="wide")
+
+st.markdown("""
+<style>
+.block-container {padding-top: 1.5rem;}
+h1, h2, h3 {color: #002b5c;}
+</style>
+""", unsafe_allow_html=True)
+
+
+def backup_stock_data():
+    return pd.DataFrame({
+        "代码": ["601899", "600036", "300750", "601318", "000333", "600900", "002415", "600519", "000858", "002594"],
+        "名称": ["紫金矿业", "招商银行", "宁德时代", "中国平安", "美的集团", "长江电力", "海康威视", "贵州茅台", "五粮液", "比亚迪"],
+        "最新价": [18, 35, 190, 45, 70, 28, 32, 1500, 130, 250],
+        "涨跌幅": [2.1, -0.5, 2.5, 0.3, 1.1, 0.6, -0.8, 1.2, 0.8, 1.8],
+        "成交额": [1700000000, 2200000000, 2800000000, 2100000000, 1600000000, 1500000000, 1200000000, 3500000000, 1800000000, 2600000000],
+        "换手率": [2.0, 0.7, 1.8, 0.6, 1.0, 0.4, 1.3, 0.5, 0.9, 1.6],
+        "市盈率-动态": [16, 6, 22, 9, 15, 18, 20, 25, 18, 28],
+        "市净率": [3.0, 0.9, 4.2, 1.0, 2.8, 2.3, 2.5, 8.5, 3.1, 5.5],
+        "营收增速": [24.8, 0.0, 52.4, 0.0, 2.6, 6.4, 11.8, 6.5, -38.2, -11.8],
+        "利润增速": [101.9, 1.4, 53.0, -5.4, 0.9, 30.1, 46.2, 1.4, -45.8, -57.5],
+        "ROE": [10.0, 3.0, 5.8, 2.5, 5.5, 3.0, 3.2, 10.1, 6.3, 1.6],
+        "现金流质量": [1.1, 3.3, 1.5, 3.9, 1.1, 1.7, -0.7, 1.0, -0.3, 0.7],
+    })
+
+
+def backup_index_data():
+    return pd.DataFrame({
+        "代码": ["000001", "399001", "399006", "000300", "000905", "000852"],
+        "名称": ["上证指数", "深证成指", "创业板指", "沪深300", "中证500", "中证1000"],
+        "最新价": [3000, 9500, 1900, 3600, 5400, 5800],
+        "涨跌幅": [0.6, 0.9, 1.2, 0.7, 0.8, 1.0],
+        "成交额": [420000000000, 520000000000, 180000000000, 260000000000, 210000000000, 190000000000],
+    })
+
+
+def backup_industry_data():
+    return pd.DataFrame({
+        "板块名称": ["半导体", "消费电子", "电池", "有色金属", "软件开发", "证券", "白酒", "电力", "医药商业", "银行"],
+        "涨跌幅": [3.2, 2.8, 2.5, 2.2, 1.9, 1.5, 1.6, 1.3, 1.1, 0.8],
+        "换手率": [3.5, 3.0, 2.8, 2.6, 2.4, 1.8, 1.2, 0.9, 1.5, 0.7],
+        "上涨家数": [65, 58, 50, 45, 42, 38, 32, 40, 35, 28],
+        "下跌家数": [10, 12, 15, 13, 16, 17, 8, 12, 14, 15],
+    })
+
+
+def to_num(df, cols):
+    for col in cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def score_rank(s, high_good=True):
+    s = pd.to_numeric(s, errors="coerce")
+    if high_good:
+        return s.rank(pct=True).fillna(0.5)
+    return (1 - s.rank(pct=True)).fillna(0.5)
+
+
+def get_current_quarter_start():
+    today = datetime.now()
+    quarter_month = ((today.month - 1) // 3) * 3 + 1
+    return datetime(today.year, quarter_month, 1)
+
+
+def value_comment(row):
+    pe = row.get("市盈率-动态", np.nan)
+    profit = row.get("利润增速", np.nan)
+    revenue = row.get("营收增速", np.nan)
+
+    if pd.notna(profit) and pd.notna(revenue):
+        if profit > 20 and revenue > 10 and pe < 30:
+            return "业绩增长较好，估值未明显透支"
+        if profit > 20 and pe >= 30:
+            return "业绩较好，但估值偏高"
+        if profit < 0:
+            return "利润承压，需谨慎"
+    return "业绩和估值基本匹配"
+
+
+@st.cache_data(ttl=600)
+def load_market_data():
+    if ak is None:
+        return backup_stock_data(), backup_index_data(), backup_industry_data(), "备用数据"
+
+    try:
+        stock_df = ak.stock_zh_a_spot_em()
+    except Exception:
+        stock_df = backup_stock_data()
+
+    try:
+        index_df = ak.stock_zh_index_spot_em()
+    except Exception:
+        index_df = backup_index_data()
+
+    try:
+        industry_df = ak.stock_board_industry_name_em()
+    except Exception:
+        industry_df = backup_industry_data()
+
+    return stock_df, index_df, industry_df, "AkShare 或备用数据"
+
+
+@st.cache_data(ttl=3600)
+def get_stock_quarter_return(code, start_date, end_date):
+    if ak is None:
+        return None
+
+    try:
+        hist = ak.stock_zh_a_hist(
+            symbol=str(code).zfill(6),
+            period="daily",
+            start_date=start_date,
+            end_date=end_date,
+            adjust="qfq",
+        )
+        if hist is None or hist.empty:
+            return None
+
+        hist = hist.sort_values("日期")
+        start_price = hist["收盘"].iloc[0]
+        end_price = hist["收盘"].iloc[-1]
+
+        return {
+            "期初价格": start_price,
+            "期末价格": end_price,
+            "本季度收益率": end_price / start_price - 1,
+        }
+    except Exception:
+        return None
+
+
+st.title("A股基本面多因子配置推荐系统")
+st.caption("周度行情观察 + 季度基本面推荐｜公开数据可复现｜课程研究用途，不构成投资建议")
+st.success("当前推荐周期：周度观察行情和行业强弱，季度更新股票组合。组合采用前10只股票等权配置。")
+
+stock_df, index_df, industry_df, data_source = load_market_data()
+st.info(f"数据更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}；数据来源：{data_source}")
+
+st.header("1. 最近A股行情概览")
+
+stock_df = to_num(stock_df, ["最新价", "涨跌幅", "成交额", "换手率", "市盈率-动态", "市净率"])
+
+up_count = (stock_df["涨跌幅"] > 0).sum() if "涨跌幅" in stock_df.columns else 0
+down_count = (stock_df["涨跌幅"] < 0).sum() if "涨跌幅" in stock_df.columns else 0
+flat_count = (stock_df["涨跌幅"] == 0).sum() if "涨跌幅" in stock_df.columns else 0
+total_amount = stock_df["成交额"].sum() / 100000000 if "成交额" in stock_df.columns else 0
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("上涨股票数", f"{up_count} 只")
+c2.metric("下跌股票数", f"{down_count} 只")
+c3.metric("平盘股票数", f"{flat_count} 只")
+c4.metric("全市场成交额", f"{total_amount:.0f} 亿元")
+
+index_df = to_num(index_df, ["最新价", "涨跌幅", "成交额"])
+show_index = index_df[[c for c in ["代码", "名称", "最新价", "涨跌幅", "成交额"] if c in index_df.columns]].copy()
+if "成交额" in show_index.columns:
+    show_index["成交额/亿元"] = (show_index["成交额"] / 100000000).round(2)
+    show_index = show_index.drop(columns=["成交额"])
+st.dataframe(show_index, use_container_width=True, hide_index=True)
+
+st.header("2. 最近一周行业配置建议")
+st.write("本模块用于观察短期市场资金偏好。行业得分越高，代表短期动量、交易活跃度和上涨扩散程度越强。")
+
+industry_df = to_num(industry_df, ["涨跌幅", "换手率", "上涨家数", "下跌家数"])
+industry_df["动量得分"] = score_rank(industry_df["涨跌幅"], True)
+industry_df["活跃度得分"] = score_rank(industry_df["换手率"], True)
+industry_df["扩散得分"] = score_rank(industry_df["上涨家数"], True)
+industry_df["行业综合得分"] = (
+    0.50 * industry_df["动量得分"]
+    + 0.30 * industry_df["活跃度得分"]
+    + 0.20 * industry_df["扩散得分"]
+)
+
+top_industry = industry_df.sort_values("行业综合得分", ascending=False).head(10).copy()
+top_industry["行业综合得分"] = top_industry["行业综合得分"].round(3)
+st.dataframe(top_industry[[c for c in ["板块名称", "涨跌幅", "换手率", "上涨家数", "下跌家数", "行业综合得分"] if c in top_industry.columns]], use_container_width=True, hide_index=True)
+st.caption("说明：表中展示行业综合得分前10名，其中前5名可作为重点配置方向。")
+
+st.header("3. 最近一个季度股票组合推荐")
+st.write("本模块用于筛选同时具备估值相对合理、交易活跃、趋势较强和基本面可解释性的股票。")
+
+df = stock_df.copy()
+for col in ["营收增速", "利润增速", "ROE", "现金流质量"]:
+    if col not in df.columns:
+        df = df.merge(backup_stock_data()[["代码", col]], on="代码", how="left")
+
+df = df[~df["名称"].astype(str).str.contains("ST", na=False)]
 df = df[df["最新价"] > 0]
 df = df[df["成交额"] > 0]
 df = df[df["市盈率-动态"] > 0]
