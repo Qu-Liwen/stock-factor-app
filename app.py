@@ -268,7 +268,7 @@ for _, row in top_stock.iterrows():
             "收益贡献": ret_info["本季度收益率"] * 0.10,
         })
 
-if len(backtest_list) > 0:
+if len(backtest_list) >= 10:
     backtest_df = pd.DataFrame(backtest_list)
 else:
     st.warning(
