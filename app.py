@@ -105,7 +105,7 @@ def value_comment(row):
     pe = row["市盈率-动态"]
     profit = row["利润增速"]
     quarter_ret = row["本季度表现"]
-    if quarter_ret < -0.08:
+    if quarter_ret < -0.05:
         return "本季度走势偏弱，暂不优先配置"
     if profit > 15 and pe < 25:
         return "业绩增长较好，估值未明显透支"
