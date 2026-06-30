@@ -139,7 +139,7 @@ def build_stock_scores(df):
     df["现金流得分"] = score_rank(df["现金流质量"], True)
     df["季度动量得分"] = score_rank(df["本季度表现"], True)
 
-    df["风险过滤"] = np.where(df["本季度表现"] < -0.08, "剔除", "保留")
+    df["风险过滤"] = np.where(df["本季度表现"] < -0.05, "剔除", "保留")
     filtered = df[df["风险过滤"] == "保留"].copy()
 
     filtered["最终综合得分"] = (
