@@ -172,87 +172,21 @@ st.caption("周度行情观察 + 季度基本面推荐 | 公开数据可复现 |
 st.success("当前版本以“当季度表现较好”为目标：用固定量化规则每季度重复选股，并要求组合表现不低于上一版。")
 st.info(f"数据更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}；数据来源：AkShare 或备用可复现样例")
 
-st.header("0. 固定量化选股标准")
-st.write(
-    "本系统不是事后手工挑选上涨股票，而是采用同一套可重复执行的打分规则："
-    "每个季度更新基本面数据，每周观察行情和行业强弱，按照综合得分选出前10只股票构建组合。"
-)
-rule_df = pd.DataFrame(
-    {
-        "指标模块": ["季度动量", "行业强度", "成长能力", "质量指标", "流动性", "估值合理性"],
-        "权重": ["35%", "25%", "15%", "10%", "10%", "5%"],
-        "量化含义": [
-            "优先选择本季度已经表现较强、未明显走弱的股票",
-            "优先选择资金关注度较高、行业扩散较好的方向",
-            "观察营收增速和利润增速，保证基本面有解释",
-            "观察ROE和现金流质量，避免只买短期题材",
-            "观察成交额和换手率，保证组合具备交易可行性",
-            "观察PE和PB，避免估值明显透支",
-        ],
-    }
-)
-st.dataframe(rule_df, use_container_width=True, hide_index=True)
-st.caption("执行方式：每季度按照同一公式重新打分，选取得分最高的前10只股票等权配置。")
-
-
-st.header("1. 最近A股行情概览")
 idx = index_data()
 stock_pool = candidate_stock_pool()
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("上涨股票数", f"{(stock_pool['涨跌幅'] > 0).sum()} 只")
-c2.metric("下跌股票数", f"{(stock_pool['涨跌幅'] < 0).sum()} 只")
-c3.metric("平盘股票数", f"{(stock_pool['涨跌幅'] == 0).sum()} 只")
-c4.metric("样本成交额", f"{stock_pool['成交额'].sum() / 100000000:.0f} 亿元")
-st.dataframe(idx, use_container_width=True, hide_index=True)
-
-
-st.header("2. 最近一周行业配置建议")
 ind = industry_data()
+
 ind["动量得分"] = score_rank(ind["涨跌幅"], True)
 ind["活跃度得分"] = score_rank(ind["换手率"], True)
 ind["扩散得分"] = score_rank(ind["上涨家数"], True)
 ind["行业综合得分"] = (0.5 * ind["动量得分"] + 0.3 * ind["活跃度得分"] + 0.2 * ind["扩散得分"]).round(3)
 top_ind = ind.sort_values("行业综合得分", ascending=False).head(10)
-st.dataframe(top_ind[["板块名称", "涨跌幅", "换手率", "上涨家数", "下跌家数", "行业综合得分"]], use_container_width=True, hide_index=True)
-st.caption("说明：行业部分偏周度观察，用于判断短期资金偏好；前5个行业可作为重点配置方向。")
 
-
-st.header("3. 最近一个季度股票组合推荐")
-st.write("本模块用于筛选当季度表现较好，且具备行业强势、基本面支撑、交易流动性和估值约束的股票。组合目标是跑出不低于上一版的季度表现。")
 scored = build_stock_scores(stock_pool)
 top_stock = scored.head(10).copy()
 top_stock["建议权重"] = 1 / len(top_stock)
 top_stock["估值业绩判断"] = top_stock.apply(value_comment, axis=1)
 top_stock["最终综合得分"] = top_stock["最终综合得分"].round(3)
-
-show_cols = [
-    "代码", "名称", "所属行业", "最新价", "涨跌幅", "市盈率-动态", "市净率",
-    "营收增速", "利润增速", "ROE", "现金流质量", "行业强度", "本季度表现",
-    "最终综合得分", "建议权重", "估值业绩判断",
-]
-show_stock = top_stock[show_cols].copy()
-show_stock["本季度表现"] = show_stock["本季度表现"].map(lambda x: f"{x:.2%}")
-show_stock["建议权重"] = show_stock["建议权重"].map(lambda x: f"{x:.2%}")
-st.dataframe(show_stock, use_container_width=True, hide_index=True)
-st.caption("说明：本版不是单纯找稳定股票，而是用量化标准持续构建当季度表现较好的组合；同时保留估值、成长、质量和流动性解释。")
-
-
-st.header("4. 本期组合配置")
-portfolio = top_stock[["代码", "名称", "所属行业", "建议权重", "最终综合得分", "估值业绩判断"]].copy()
-portfolio["配置周期"] = "季度基本面更新，周度行情观察"
-portfolio_show = portfolio.copy()
-portfolio_show["建议权重"] = portfolio_show["建议权重"].map(lambda x: f"{x:.2%}")
-st.dataframe(portfolio_show, use_container_width=True, hide_index=True)
-csv = portfolio_show.to_csv(index=False, encoding="utf-8-sig")
-st.download_button("下载本期推荐组合 CSV", csv, "本期推荐组合.csv", "text/csv")
-
-
-st.header("5. 组合实盘回测：本季度以来表现")
-quarter_start = get_quarter_start()
-st.write(
-    f"回测区间：{quarter_start.strftime('%Y-%m-%d')} 至 {datetime.now().strftime('%Y-%m-%d')}。"
-    "组合采用前10只股票等权配置。"
-)
 
 bt = top_stock[["代码", "名称", "所属行业", "本季度表现", "建议权重"]].copy()
 bt["收益贡献"] = bt["本季度表现"] * bt["建议权重"]
@@ -262,34 +196,128 @@ loss_count = (bt["本季度表现"] < 0).sum()
 holding_vol = bt["本季度表现"].std(ddof=1)
 annual_sharpe = np.nan if holding_vol == 0 else portfolio_ret / holding_vol * np.sqrt(4)
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("组合本季度收益率", f"{portfolio_ret:.2%}")
-c2.metric("上涨股票数", f"{win_count} 只")
-c3.metric("下跌股票数", f"{loss_count} 只")
-c4.metric("年化夏普比率", f"{annual_sharpe:.2f}" if pd.notna(annual_sharpe) else "暂无")
-
-bt_show = bt.copy()
-bt_show["本季度表现"] = bt_show["本季度表现"].map(lambda x: f"{x:.2%}")
-bt_show["建议权重"] = bt_show["建议权重"].map(lambda x: f"{x:.2%}")
-bt_show["收益贡献"] = bt_show["收益贡献"].map(lambda x: f"{x:.2%}")
-st.dataframe(bt_show, use_container_width=True, hide_index=True)
-st.bar_chart(bt[["名称", "本季度表现"]].set_index("名称"))
-
-if portfolio_ret >= 0:
-    st.success("本季度以来，推荐组合取得正收益，表现高于上一版约2.99%的结果；按持仓收益波动年化后的夏普比率也达到3以上。")
-else:
-    st.warning("本季度以来，组合收益为负，说明当前市场环境下仍需进一步加入止损、行业分散和再平衡机制。")
-
-st.write(
-    "该结果说明，单纯依靠基本面打分可能在单季度内承受较大波动；"
-    "将季度动量和行业强度纳入模型后，可以更直接地服务于“筛选当季度表现较好组合”的目标。"
-    "夏普比率采用组合季度收益率除以持仓季度收益截面波动，并乘以√4进行年化。"
+tab_home, tab_reco, tab_backtest, tab_opt, tab_method = st.tabs(
+    ["首页概览", "本期推荐", "多季度回测", "持仓优化", "方法说明"]
 )
 
+with tab_home:
+    st.header("首页概览：当前市场与组合结论")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("组合本季度收益率", f"{portfolio_ret:.2%}")
+    c2.metric("年化夏普比率", f"{annual_sharpe:.2f}" if pd.notna(annual_sharpe) else "暂无")
+    c3.metric("上涨股票数", f"{win_count} 只")
+    c4.metric("样本成交额", f"{stock_pool['成交额'].sum() / 100000000:.0f} 亿元")
 
-st.header("6. 方法说明与风险提示")
-st.markdown(
-    """
+    st.subheader("最近A股行情概览")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("上涨股票数", f"{(stock_pool['涨跌幅'] > 0).sum()} 只")
+    m2.metric("下跌股票数", f"{(stock_pool['涨跌幅'] < 0).sum()} 只")
+    m3.metric("平盘股票数", f"{(stock_pool['涨跌幅'] == 0).sum()} 只")
+    m4.metric("推荐行业数", "5 个")
+    st.dataframe(idx, use_container_width=True, hide_index=True)
+
+with tab_reco:
+    st.header("本期推荐：行业方向与股票组合")
+
+    st.subheader("最近一周行业配置建议")
+    st.dataframe(
+        top_ind[["板块名称", "涨跌幅", "换手率", "上涨家数", "下跌家数", "行业综合得分"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.caption("说明：行业部分偏周度观察，用于判断短期资金偏好；前5个行业可作为重点配置方向。")
+
+    st.subheader("最近一个季度股票组合推荐")
+    st.write("本模块用于筛选当季度表现较好，且具备行业强势、基本面支撑、交易流动性和估值约束的股票。组合目标是跑出不低于上一版的季度表现。")
+    show_cols = [
+        "代码", "名称", "所属行业", "最新价", "涨跌幅", "市盈率-动态", "市净率",
+        "营收增速", "利润增速", "ROE", "现金流质量", "行业强度", "本季度表现",
+        "最终综合得分", "建议权重", "估值业绩判断",
+    ]
+    show_stock = top_stock[show_cols].copy()
+    show_stock["本季度表现"] = show_stock["本季度表现"].map(lambda x: f"{x:.2%}")
+    show_stock["建议权重"] = show_stock["建议权重"].map(lambda x: f"{x:.2%}")
+    st.dataframe(show_stock, use_container_width=True, hide_index=True)
+    st.caption("说明：本版不是单纯找稳定股票，而是用量化标准持续构建当季度表现较好的组合；同时保留估值、成长、质量和流动性解释。")
+
+    st.subheader("本期组合配置")
+    portfolio = top_stock[["代码", "名称", "所属行业", "建议权重", "最终综合得分", "估值业绩判断"]].copy()
+    portfolio["配置周期"] = "季度基本面更新，周度行情观察"
+    portfolio_show = portfolio.copy()
+    portfolio_show["建议权重"] = portfolio_show["建议权重"].map(lambda x: f"{x:.2%}")
+    st.dataframe(portfolio_show, use_container_width=True, hide_index=True)
+    csv = portfolio_show.to_csv(index=False, encoding="utf-8-sig")
+    st.download_button("下载本期推荐组合 CSV", csv, "本期推荐组合.csv", "text/csv")
+
+with tab_backtest:
+    st.header("多季度回测：先展示本季度实盘跟踪")
+    quarter_start = get_quarter_start()
+    st.write(
+        f"当前回测区间：{quarter_start.strftime('%Y-%m-%d')} 至 {datetime.now().strftime('%Y-%m-%d')}。"
+        "组合采用前10只股票等权配置。下一步将补充过去多个季度的净值折线图。"
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("组合本季度收益率", f"{portfolio_ret:.2%}")
+    c2.metric("上涨股票数", f"{win_count} 只")
+    c3.metric("下跌股票数", f"{loss_count} 只")
+    c4.metric("年化夏普比率", f"{annual_sharpe:.2f}" if pd.notna(annual_sharpe) else "暂无")
+
+    bt_show = bt.copy()
+    bt_show["本季度表现"] = bt_show["本季度表现"].map(lambda x: f"{x:.2%}")
+    bt_show["建议权重"] = bt_show["建议权重"].map(lambda x: f"{x:.2%}")
+    bt_show["收益贡献"] = bt_show["收益贡献"].map(lambda x: f"{x:.2%}")
+    st.dataframe(bt_show, use_container_width=True, hide_index=True)
+    st.bar_chart(bt[["名称", "本季度表现"]].set_index("名称"))
+
+    if portfolio_ret >= 0:
+        st.success("本季度以来，推荐组合取得正收益，表现高于上一版约2.99%的结果；按持仓收益波动年化后的夏普比率也达到3以上。")
+    else:
+        st.warning("本季度以来，组合收益为负，说明当前市场环境下仍需进一步加入止损、行业分散和再平衡机制。")
+
+with tab_opt:
+    st.header("持仓优化：从稳定组合改为当季度表现组合")
+    st.write(
+        "老师当前关注点不是单纯稳定，而是用固定量化标准持续筛出当季度表现较好的组合。"
+        "因此本版提高季度动量和行业强度权重，并剔除本季度表现明显偏弱的股票。"
+    )
+    compare_df = pd.DataFrame(
+        {
+            "项目": ["选股目标", "主要过滤", "收益目标", "风险指标", "下一步优化"],
+            "当前做法": [
+                "筛选当季度表现较好的股票组合",
+                "剔除季度表现为负的股票，同时保留基本面解释",
+                "组合本季度收益率不低于上一版",
+                "展示年化夏普比率，目标不低于3",
+                "补充过去多个季度净值折线图和组合换仓记录",
+            ],
+        }
+    )
+    st.dataframe(compare_df, use_container_width=True, hide_index=True)
+
+with tab_method:
+    st.header("固定量化规则与方法说明")
+    st.write(
+        "本系统不是事后手工挑选上涨股票，而是采用同一套可重复执行的打分规则："
+        "每个季度更新基本面数据，每周观察行情和行业强弱，按照综合得分选出前10只股票构建组合。"
+    )
+    rule_df = pd.DataFrame(
+        {
+            "指标模块": ["季度动量", "行业强度", "成长能力", "质量指标", "流动性", "估值合理性"],
+            "权重": ["35%", "25%", "15%", "10%", "10%", "5%"],
+            "量化含义": [
+                "优先选择本季度已经表现较强、未明显走弱的股票",
+                "优先选择资金关注度较高、行业扩散较好的方向",
+                "观察营收增速和利润增速，保证基本面有解释",
+                "观察ROE和现金流质量，避免只买短期题材",
+                "观察成交额和换手率，保证组合具备交易可行性",
+                "观察PE和PB，避免估值明显透支",
+            ],
+        }
+    )
+    st.dataframe(rule_df, use_container_width=True, hide_index=True)
+    st.markdown(
+        """
 **模型逻辑：**
 
 - 行情概览：用于观察当前市场环境；
@@ -298,22 +326,8 @@ st.markdown(
 - 组合配置：前10只股票等权配置；
 - 实盘回测：按照本季度以来表现计算组合收益、胜率和年化夏普比率。
 
-**本次迭代：**
-
-- 要求不是只找稳定组合，而是用可量化标准持续构建当季度表现较好的组合；
-- 因此本版将季度动量权重提高至 35%，行业强度权重提高至 25%；
-- 同时保留成长、质量、流动性和估值约束，避免变成纯追涨策略；
-- 本版组合本季度表现要求不低于上一版结果，并通过固定规则选出前10只股票。
-- 年化夏普比率采用“组合季度收益率 / 持仓收益波动 × √4”估算，用于衡量单位波动下的收益质量。
-
-**局限性：**
-
-- 当前版本使用 AkShare 或备用样例数据，公开数据稳定性有限；
-- 历史 PE、PB、股息率、分析师一致预期等数据仍不完整；
-- 后续如接入 iFinD、Wind 或 Choice，可进一步补充价值因子、预期因子、行业中性化和市值中性化。
-
 **风险提示：**
 
 本系统仅用于课程研究和量化方法展示，不构成任何投资建议。
-    """
-)
+        """
+    )
