@@ -323,25 +323,25 @@ for col in ["组合收益", "等权基准", "超额收益", "胜率"]:
 for col in ["组合净值", "基准净值", "超额净值"]:
         qbt_show[col] = qbt_show[col].map(lambda x: f"{x:.3f}")
     
-    st.dataframe(qbt_show, use_container_width=True, hide_index=True)
+st.dataframe(qbt_show, use_container_width=True, hide_index=True)
 
-    st.success(
+st.success(
         "从多季度结果看，组合净值连续高于等权基准，近5季累计收益和超额收益均为正，"
         "说明该规则不是只针对单季度调参，而是具备连续构建较优组合的展示效果。"
     )
 
-    st.subheader("当前季度持仓跟踪")
-    st.write(
+st.subheader("当前季度持仓跟踪")
+st.write(
         f"当前季度跟踪区间：{quarter_start.strftime('%Y-%m-%d')} 至 {datetime.now().strftime('%Y-%m-%d')}。"
         "下表展示当前推荐组合中各股票对组合收益的贡献。"
     )
 
-    bt_show = bt.copy()
-    bt_show["本季度表现"] = bt_show["本季度表现"].map(lambda x: f"{x:.2%}")
-    bt_show["建议权重"] = bt_show["建议权重"].map(lambda x: f"{x:.2%}")
-    bt_show["收益贡献"] = bt_show["收益贡献"].map(lambda x: f"{x:.2%}")
-    st.dataframe(bt_show, use_container_width=True, hide_index=True)
-  bar_fig = px.bar(
+bt_show = bt.copy()
+bt_show["本季度表现"] = bt_show["本季度表现"].map(lambda x: f"{x:.2%}")
+bt_show["建议权重"] = bt_show["建议权重"].map(lambda x: f"{x:.2%}")
+bt_show["收益贡献"] = bt_show["收益贡献"].map(lambda x: f"{x:.2%}")
+st.dataframe(bt_show, use_container_width=True, hide_index=True)
+bar_fig = px.bar(
     bt,
     x="名称",
     y="本季度表现",
