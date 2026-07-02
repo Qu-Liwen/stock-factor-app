@@ -282,7 +282,7 @@ st.write(
     "并与等权基准进行比较，用于观察模型的连续性和稳定性。"
 )
 
-    c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
     c1.metric("近5季累计收益", f"{qbt['组合净值'].iloc[-1] - 1:.2%}")
     c2.metric("近5季累计超额", f"{qbt['超额净值'].iloc[-1] - 1:.2%}")
     c3.metric("季度胜率均值", f"{qbt['胜率'].mean():.0%}")
