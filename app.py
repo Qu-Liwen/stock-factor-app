@@ -277,10 +277,10 @@ with tab_reco:
 with tab_backtest:
     st.header("多季度回测：滚动季度组合表现")
     quarter_start = get_quarter_start()
-    st.write(
-        "本模块用于回答老师关注的核心问题：不是只看当前一季，而是用同一套量化规则，"
-        "在多个季度中持续构建前10只等权组合，并观察组合净值是否稳定跑赢等权基准。"
-    )
+st.write(
+    "本节展示组合在过去多个季度中的滚动表现。组合每季度按照同一套量化规则重新筛选，"
+    "并与等权基准进行比较，用于观察模型的连续性和稳定性。"
+)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("近5季累计收益", f"{qbt['组合净值'].iloc[-1] - 1:.2%}")
@@ -290,7 +290,31 @@ with tab_backtest:
 
     st.subheader("组合净值折线图")
     nav_chart = qbt[["季度", "组合净值", "基准净值", "超额净值"]].set_index("季度")
-    st.line_chart(nav_chart)
+    import plotly.express as px
+
+nav_plot = nav_chart.reset_index().melt(
+    id_vars="季度",
+    value_vars=["组合净值", "基准净值", "超额净值"],
+    var_name="类型",
+    value_name="净值"
+)
+
+fig = px.line(
+    nav_plot,
+    x="季度",
+    y="净值",
+    color="类型",
+    markers=True,
+    title="组合净值走势"
+)
+
+fig.update_layout(
+    xaxis_tickangle=-35,
+    height=430,
+    legend_title_text="",
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("多季度收益明细")
     qbt_show = qbt.copy()
@@ -316,7 +340,19 @@ with tab_backtest:
     bt_show["建议权重"] = bt_show["建议权重"].map(lambda x: f"{x:.2%}")
     bt_show["收益贡献"] = bt_show["收益贡献"].map(lambda x: f"{x:.2%}")
     st.dataframe(bt_show, use_container_width=True, hide_index=True)
-    st.bar_chart(bt[["名称", "本季度表现"]].set_index("名称"))
+  bar_fig = px.bar(
+    bt,
+    x="名称",
+    y="本季度表现",
+    title="当前持仓本季度表现"
+)
+
+bar_fig.update_layout(
+    xaxis_tickangle=-35,
+    height=420,
+)
+
+st.plotly_chart(bar_fig, use_container_width=True)
 
     if portfolio_ret >= 0:
         st.success("当前季度推荐组合取得正收益；按持仓收益波动估算的年化夏普比率达到3以上。")
