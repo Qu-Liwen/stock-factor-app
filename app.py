@@ -315,9 +315,9 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+st.subheader("多季度收益明细")
+qbt_show = qbt.copy()
 
-    st.subheader("多季度收益明细")
-    qbt_show = qbt.copy()
     for col in ["组合收益", "等权基准", "超额收益", "胜率"]:
         qbt_show[col] = qbt_show[col].map(lambda x: f"{x:.2%}")
     for col in ["组合净值", "基准净值", "超额净值"]:
