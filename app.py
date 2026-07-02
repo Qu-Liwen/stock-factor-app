@@ -310,12 +310,6 @@ with tab_method:
 
     st.dataframe(rule_df, use_container_width=True, hide_index=True)
 
-    st.subheader("本次迭代")
-
-    st.write(
-        "相比初版模型，本版本加入季度动量过滤，剔除本季度表现明显较弱的股票，"
-        "使组合更接近老师要求的“持续稳定地构建当季度表现较好的组合”。"
-    )
 
     st.subheader("局限性")
 
