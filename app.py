@@ -190,7 +190,6 @@ def multi_quarter_backtest():
 
 st.title("A股基本面多因子配置推荐系统")
 st.caption("周度行情观察 + 季度基本面推荐 | 公开数据可复现 | 课程研究用途，不构成投资建议")
-st.success("当前版本以“当季度表现较好”为目标：用固定量化规则每季度重复选股，并要求组合表现不低于上一版。")
 st.info(f"数据更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}；数据来源：AkShare 或备用可复现样例")
 
 idx = index_data()
@@ -265,14 +264,7 @@ with tab_reco:
     st.dataframe(show_stock, use_container_width=True, hide_index=True)
     st.caption("说明：本版不是单纯找稳定股票，而是用量化标准持续构建当季度表现较好的组合；同时保留估值、成长、质量和流动性解释。")
 
-    st.subheader("本期组合配置")
-    portfolio = top_stock[["代码", "名称", "所属行业", "建议权重", "最终综合得分", "估值业绩判断"]].copy()
-    portfolio["配置周期"] = "季度基本面更新，周度行情观察"
-    portfolio_show = portfolio.copy()
-    portfolio_show["建议权重"] = portfolio_show["建议权重"].map(lambda x: f"{x:.2%}")
-    st.dataframe(portfolio_show, use_container_width=True, hide_index=True)
-    csv = portfolio_show.to_csv(index=False, encoding="utf-8-sig")
-    st.download_button("下载本期推荐组合 CSV", csv, "本期推荐组合.csv", "text/csv")
+   
 
 with tab_backtest:
     st.header("多季度回测：滚动季度组合表现")
@@ -324,11 +316,6 @@ for col in ["组合净值", "基准净值", "超额净值"]:
         qbt_show[col] = qbt_show[col].map(lambda x: f"{x:.3f}")
     
 st.dataframe(qbt_show, use_container_width=True, hide_index=True)
-
-st.success(
-        "从多季度结果看，组合净值连续高于等权基准，近5季累计收益和超额收益均为正，"
-        "说明该规则不是只针对单季度调参，而是具备连续构建较优组合的展示效果。"
-    )
 
 st.subheader("当前季度持仓跟踪")
 st.write(
