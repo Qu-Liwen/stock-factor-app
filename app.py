@@ -283,14 +283,14 @@ st.write(
 )
 
 c1, c2, c3, c4 = st.columns(4)
-    c1.metric("近5季累计收益", f"{qbt['组合净值'].iloc[-1] - 1:.2%}")
-    c2.metric("近5季累计超额", f"{qbt['超额净值'].iloc[-1] - 1:.2%}")
-    c3.metric("季度胜率均值", f"{qbt['胜率'].mean():.0%}")
-    c4.metric("近5季年化夏普", f"{q_sharpe:.2f}" if pd.notna(q_sharpe) else "暂无")
+c1.metric("近5季累计收益", f"{qbt['组合净值'].iloc[-1] - 1:.2%}")
+c2.metric("近5季累计超额", f"{qbt['超额净值'].iloc[-1] - 1:.2%}")
+c3.metric("季度胜率均值", f"{qbt['胜率'].mean():.0%}")
+c4.metric("近5季年化夏普", f"{q_sharpe:.2f}" if pd.notna(q_sharpe) else "暂无")
+st.subheader("组合净值折线图")
+nav_chart = qbt[["季度", "组合净值", "基准净值", "超额净值"]].set_index("季度")
 
-    st.subheader("组合净值折线图")
-    nav_chart = qbt[["季度", "组合净值", "基准净值", "超额净值"]].set_index("季度")
-    import plotly.express as px
+import plotly.express as px
 
 nav_plot = nav_chart.reset_index().melt(
     id_vars="季度",
