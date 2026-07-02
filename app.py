@@ -322,6 +322,7 @@ for col in ["组合收益", "等权基准", "超额收益", "胜率"]:
         qbt_show[col] = qbt_show[col].map(lambda x: f"{x:.2%}")
 for col in ["组合净值", "基准净值", "超额净值"]:
         qbt_show[col] = qbt_show[col].map(lambda x: f"{x:.3f}")
+    
     st.dataframe(qbt_show, use_container_width=True, hide_index=True)
 
     st.success(
