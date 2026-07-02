@@ -355,10 +355,10 @@ bar_fig.update_layout(
 
 st.plotly_chart(bar_fig, use_container_width=True)
 
-    if portfolio_ret >= 0:
-        st.success("当前季度推荐组合取得正收益；按持仓收益波动估算的年化夏普比率达到3以上。")
-    else:
-        st.warning("本季度以来，组合收益为负，说明当前市场环境下仍需进一步加入止损、行业分散和再平衡机制。")
+if portfolio_ret >= 0:
+     st.success("当前季度推荐组合取得正收益；按持仓收益波动估算的年化夏普比率达到3以上。")
+else:
+    st.warning("本季度以来，组合收益为负，说明当前市场环境下仍需进一步加入止损、行业分散和再平衡机制。")
 
 with tab_opt:
     st.header("持仓优化：从稳定组合改为当季度表现组合")
